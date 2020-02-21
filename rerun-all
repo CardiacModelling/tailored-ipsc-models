@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#
+# Runs all simulations, analyses, etc. and re-generates the figures for the
+# paper.
+#
+# 1. Remove cache files
+if [ -d ./results ]; then
+    echo "Removing cached results"
+    rm ./results -rf
+fi
+mkdir ./results
+# 2. Run all scripts
+./run-all

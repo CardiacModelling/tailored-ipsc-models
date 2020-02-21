@@ -1,0 +1,8 @@
+# Ignore python bytecode files
+*.pyc
+
+# Ignore pdfs (they have timestamps)
+*.pdf
+
+# Leave the pngs for easy inspection
+#*.png

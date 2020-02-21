@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#
+# Runs all simulations, analyses, etc. and re-generates the figures for the
+# paper.
+#
+echo "Running all scripts"
+./figure1a.py
+./figure1b.py
+./figure2.py
+./figure3a.py
+./figure3b.py
+./figure4.py         # --apfigures
+./figure4.py --apd50 # --apfigures
+./figure5.py         # --apfigures
+./figure5.py --apd50 # --apfigures
+./figureS2.py
+./figureS4.py
+./figureS5.py
+./figureS6.py
+./figureS7.py
+./table2.py

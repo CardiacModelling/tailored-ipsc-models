@@ -1,0 +1,401 @@
+[[model]]
+author: Cellml converter
+name: paci_hyttinen_aaltosetala_severi_ventricularVersion
+desc: """
+Myokit version of the 2013 hiPSC model by Paci et al., ventricular version [1].
+
+Based on the CellML file published at:
+
+    https://models.cellml.org/w/sseveri/paci_hyttinen_aaltosetala_severi_2013
+
+Note that the initial value for Ca_SR in the CellML file has an erroneous
+ minus (-) in front of it.
+
+References:
+
+[1] Computational Models of Ventricular- and Atrial-Like Human Induced
+    Pluripotent Stem Cell Derived Cardiomyocytes
+    Michaelangelo Paci, Jari Hyttinen, Katriina Aalto-Setala, Stefano Severi
+    Annals of Biomedical Engineering, Vol. 41, No. 11, November 2013
+    http://dx.doi.org/10.1007/s10439-013-0833-3
+
+"""
+# Initial values
+membrane.V    = -7.43340057623840950e-2
+ina.m         =  1.02953468725003994e-1
+ina.h         =  7.86926637881461000e-1
+ina.j         =  2.53943221774722006e-1
+ical.d        =  8.96088425225181960e-5
+ical.f1       =  9.70411811263976021e-1
+ical.f2       =  9.99965815466749008e-1
+ical.fCa      =  9.98925296531803952e-1
+ikr.xr1       =  7.78547011240132009e-3
+ikr.xr2       =  4.32162576531616993e-1
+iks.xs        =  3.22944866983665979e-2
+if.xf         =  1.00615100568753002e-1
+ito.q         =  8.39295925773218987e-1
+ito.r         =  5.73289893326379019e-3
+sodium.Nai    =  1.09248496211573993e1
+calcium.g     =  9.99999981028516949e-1
+calcium.Cai   =  1.80773974140477016e-5
+calcium.Ca_SR =  2.73423475193100007e-1
+beattie.open = 0
+beattie.active = 1
+
+[beattie]
+use membrane.V
+IKr = g * open * active * (V - rev.EK)
+dot(open) = (inf - open) / tau
+    inf = k1 * tau
+    tau = 1 / (k1 + k2)
+    k1 = p1 * exp(p2 * V)
+    k2 = p3 * exp(-p4 * V)
+dot(active) = (inf - active) / tau
+    inf = k4 * tau
+    tau = 1 / (k3 + k4)
+    k3 = p5 * exp(p6 * V)
+    k4 = p7 * exp(-p8 * V)
+p1 = 2.26e-4 * 1e3 [1/s]
+p2 = 0.0699 * 1e3 [1/V]
+p3 = 3.45e-5 * 1e3 [1/s]
+p4 = 0.05462 * 1e3 [1/V]
+p5 = 0.0873 * 1e3 [1/s]
+p6 = 8.91e-3 * 1e3 [1/V]
+p7 = 5.15e-3 * 1e3 [1/s]
+p8 = 0.03158 * 1e3 [1/V]
+g = 0.1524 [nA]
+
+[engine]
+time = 0 bind time
+    in [s]
+pace = 0 bind pace
+
+#
+# Stimulus current
+#
+[stimulus]
+i_stim = engine.pace * amplitude / cell.Cm
+    in [A/F]
+amplitude = -5.5e-10 [A]
+
+#
+# Membrane potential
+#
+[membrane]
+dot(V) = -(i_ion + stimulus.i_stim)
+    in [V]
+    label membrane_potential
+i_ion = (
+    + ik1.IK1 + ikr.IKr + iks.IKs + ito.Ito + if.If
+    + ina.INa + ibna.IbNa
+    + ical.ICaL + ipca.IpCa + ibca.IbCa
+    + inak.INaK
+    + inaca.INaCa
+    )
+
+#
+# Potassium concentrations
+#
+[potassium]
+Ki = 150 [mM]
+Ko = 5.4 [mM]
+
+#
+# Sodium concentrations
+#
+[sodium]
+dot(Nai) = -cell.Cm * (ina.INa + ibna.IbNa + 3 * inak.INaK + 3 * inaca.INaCa) / (phys.F * (cell.Vc * 1e-18))
+    in [mM]
+Nao = 151 [mM]
+
+#
+# Calcium concentrations
+#
+[calcium]
+use membrane.V
+Buf_C = 0.25 [mM]
+Buf_SR = 10 [mM]
+dot(Ca_SR) = Ca_SR_bufSR * cell.Vc / cell.V_SR * (i_up - (i_rel + i_leak))
+    in [mM]
+Ca_SR_bufSR = 1 / (1 + Buf_SR * Kbuf_SR / (Ca_SR + Kbuf_SR) ^ 2)
+dot(Cai) = Cai_bufc * (i_leak - i_up + i_rel - (ical.ICaL + ibca.IbCa + ipca.IpCa - 2 * inaca.INaCa) * cell.Cm / (2 * cell.Vc * phys.F * 1e-18))
+    in [mM]
+Cai_bufc = 1 / (1 + Buf_C * Kbuf_C / (Cai + Kbuf_C) ^ 2)
+Kbuf_C = 0.001 [mM]
+Kbuf_SR = 0.3 [mM]
+Kup = 0.00025 [mM]
+V_leak =  4.4444e-4 [S/F]
+VmaxUp = 0.56064 [mol/m^3/s]
+a_rel = 16.464 [mol/m^3/s]
+b_rel = 0.25 [mM]
+c_rel = 8.232 [mol/m^3/s]
+dot(g) = const2 * (g_inf - g) / tau_g
+    const2 = if(g_inf > g and V > -0.06 , 0, 1)
+    g_inf = if(Cai <= 0.00035 , 1 / (1 + (Cai / 0.00035) ^ 6), 1 / (1 + (Cai / 0.00035) ^ 16))
+i_leak = (Ca_SR - Cai) * V_leak
+    in [mol/m^3/s]
+i_rel = (c_rel + a_rel * Ca_SR ^ 2 / (b_rel ^ 2 + Ca_SR ^ 2)) * (ical.d * (g * 0.0411))
+    in [mol/m^3/s]
+i_up = VmaxUp / (1 + Kup ^ 2 / Cai ^ 2)
+    in [mol/m^3/s]
+tau_g = 0.002 [s]
+Cao = 1.8 [mM]
+
+#
+# Reversal parameters
+#
+[rev]
+use phys.RTF
+ECa = 0.5 * RTF * log(calcium.Cao / calcium.Cai)
+    in [V]
+EK = RTF * log(potassium.Ko / potassium.Ki)
+    in [V]
+EKs = RTF * log((potassium.Ko + PkNa * sodium.Nao) / (potassium.Ki + PkNa * sodium.Nai))
+    in [V]
+ENa = RTF * log(sodium.Nao / sodium.Nai)
+    in [V]
+PkNa = 0.03
+
+#
+# L-type calcium current
+#
+[ical]
+use membrane.V
+use phys.F, phys.RTF
+use calcium.Cai, calcium.Cao
+g_CaL =  8.635702e-5 [L/F/ms]
+ICaL = g_CaL * d * f1 * f2 * fCa * if(V != 0, b, c)
+    b = (4 * V * F / RTF) * (Cai * exp(2 * V / RTF) - 0.341 * Cao) / (exp(2 * V / RTF) - 1)
+    c = 2 * F * (Cai - 0.341 * Cao)
+    in [A/F]
+dot(d) = (d_infinity - d) / tau_d
+    alpha_d = 0.25 + 1.4 / (1 + exp((-V * 1000 - 35) / 13))
+    beta_d = 1.4 / (1 + exp((V * 1000 + 5) / 5))
+    d_infinity = 1 / (1 + exp(-(V * 1000 + 9.1) / 7))
+    gamma_d = 1 / (1 + exp((-V * 1000 + 50) / 20))
+    tau_d = (alpha_d * beta_d + gamma_d) * 1 / 1000
+        in [s]
+dot(f1) = (f1_inf - f1) / tau_f1
+    constf1 = if(f1_inf - f1 > 0, 1 + 1433 * (calcium.Cai - 50 * 1e-6), 1)
+    f1_inf = 1 / (1 + exp((V * 1000 + 26) / 3))
+    tau_f1 = (20 + (1102.5 * exp(-((V * 1000 + 27) ^ 2 / 15) ^ 2) + (200 / (1 + exp((13 - V * 1000) / 10)) + 180 / (1 + exp((30 + V * 1000) / 10))))) * constf1 / 1000
+        in [s]
+dot(f2) = (f2_inf - f2) / tau_f2
+    constf2 = 1
+    f2_inf = 0.33 + 0.67 / (1 + exp((V * 1000 + 35) / 4))
+    tau_f2 = (600 * exp(-(V * 1000 + 25) ^ 2 / 170) + (31 / (1 + exp((25 - V * 1000) / 10)) + 16 / (1 + exp((30 + V * 1000) / 10)))) * constf2 / 1000
+        in [s]
+dot(fCa) = constfCa * (fCa_inf - fCa) / tau_fCa
+    alpha_fCa = 1 / (1 + (calcium.Cai / 0.0006) ^ 8)
+    beta_fCa = 0.1 / (1 + exp((calcium.Cai - 0.0009) / 0.0001))
+    constfCa = if(V > -0.06 and fCa_inf > fCa, 0, 1)
+    fCa_inf = (alpha_fCa + (beta_fCa + gamma_fCa)) / 1.3156
+    gamma_fCa = 0.3 / (1 + exp((calcium.Cai - 0.00075) / 0.0008))
+    tau_fCa = 0.002
+
+#
+# IK1
+#
+[ik1]
+use membrane.V
+use rev.EK, potassium.Ko
+g = 28.1492 [S/F]
+IK1 = g * inf * sqrt(Ko / 5.4) * (V - EK)
+    inf = alpha / (alpha + beta)
+    alpha = 3.91 / (1 + exp(0.5942 * (V * 1000 - EK * 1000 - 200)))
+    beta = (-1.509 * exp(0.0002 * (V * 1000 - EK * 1000 + 100)) + exp(0.5886 * (V * 1000 - EK * 1000 - 10))) / (1 + exp(0.4547 * (V * 1000 - EK * 1000)))
+
+#
+# IKr
+#
+[ikr]
+use membrane.V
+g = 29.8667 [S/F]
+IKr = g * xr1 * xr2 * sqrt(potassium.Ko / 5.4) * (V - rev.EK)
+    in [A/F]
+dot(xr1) = (inf - xr1) / tau
+    L0 = 0.025
+    Q = 2.3
+    V_half = 1000 * (-phys.RTF / Q * log((1 + calcium.Cao / 2.6) ^ 4 / (L0 * (1 + calcium.Cao / 0.58) ^ 4)) - 0.019)
+        in [mV]
+    inf = 1 / (1 + exp((V_half - V * 1000) / 4.9))
+    alpha = 450 / (1 + exp((-45 - V * 1000) / 10))
+    beta = 6 / (1 + exp((30 + V * 1000) / 11.5))
+    tau = 1 * (alpha * beta) / 1000
+dot(xr2) = (inf - xr2) / tau
+    inf = 1 / (1 + exp((V * 1000 + 88) / 50))
+    alpha = 3 / (1 + exp((-60 - V * 1000) / 20))
+    beta = 1.12 / (1 + exp((-60 + V * 1000) / 20))
+    tau = alpha * beta / 1000
+        in [s]
+
+#
+# IKs
+#
+[iks]
+use membrane.V
+g = 2.041 [S/F]
+IKs = g * xs ^ 2 * (V - rev.EKs) * k
+    in [A/F]
+    k = (1 + 0.6 / (1 + (3.8 * 1e-5 / calcium.Cai) ^ 1.4))
+dot(xs) = (inf - xs) / tau
+    inf = 1 / (1 + exp((-V * 1000 - 20) / 16))
+    alpha = 1100 / sqrt(1 + exp((-10 - V * 1000) / 6))
+    beta = 1 / (1 + exp((-60 + V * 1000) / 20))
+    tau = alpha * beta / 1000
+        in [s]
+
+#
+# INa
+#
+[ina]
+use membrane.V
+INa = g * m ^ 3 * h * j * (V - rev.ENa)
+    in [A/F]
+g = 3671.2302
+    in [S/F]
+dot(m) = (inf - m) / tau
+    alpha = 1 / (1 + exp((-V * 1000 - 60) / 5))
+    beta = 0.1 / (1 + exp((V * 1000 + 35) / 5)) + 0.1 / (1 + exp((V * 1000 - 50) / 200))
+    inf = 1 / (1 + exp((-V * 1000 - 34.1) / 5.9)) ^ (1 / 3)
+    tau = alpha * beta / 1000
+dot(h) = (inf - h) / tau
+    alpha = if(V < -0.04 , 0.057 * exp(-(V * 1000 + 80) / 6.8), 0)
+    beta = if(V < -0.04 , 2.7 * exp(0.079 * (V * 1000)) + 3.1 * (10 ^ 5 * exp(0.3485 * (V * 1000))), 0.77 / (0.13 * (1 + exp((V * 1000 + 10.66) / -11.1))))
+    inf = 1 / sqrt(1 + exp((V * 1000 + 72.1) / 5.7))
+    tau = if(V < -0.04 , 1.5 / ((alpha + beta) * 1000), 2.542 / 1000)
+dot(j) = (inf - j) / tau
+    alpha = if(V < -0.04 , (-25428 * exp(0.2444 * (V * 1000)) - 6.948 * (10 ^ (-6) * exp(-0.04391 * (V * 1000)))) * (V * 1000 + 37.78) / (1 + exp(0.311 * (V * 1000 + 79.23))), 0)
+    beta = if(V < -0.04 , 0.02424 * exp(-0.01052 * (V * 1000)) / (1 + exp(-0.1378 * (V * 1000 + 40.14))), 0.6 * exp(0.057 * (V * 1000)) / (1 + exp(-0.1 * (V * 1000 + 32))))
+    inf = 1 / sqrt(1 + exp((V * 1000 + 72.1) / 5.7))
+    tau = 7 / ((alpha + beta) * 1000)
+
+#
+# INaCa
+#
+[inaca]
+use membrane.V
+frt = phys.F / (phys.R * phys.T)
+INaCa = kNaCa * (
+    exp(gamma * V * frt) * (sodium.Nai ^ 3 * calcium.Cao) - exp((gamma - 1) * (V * phys.F) / (phys.R * phys.T)) * (sodium.Nao ^ 3 * (calcium.Cai * alpha))) / ((KmNai ^ 3 + sodium.Nao ^ 3) * ((KmCa + calcium.Cao) * (1 + Ksat * exp((gamma - 1) * (V * phys.F) / (phys.R * phys.T)))))
+    in [A/F]
+KmCa = 1.38 [mM]
+KmNai = 87.5 [mM]
+Ksat = 0.1
+alpha = 2.8571432
+gamma = 0.35
+kNaCa = 4900 [A/F]
+
+#
+# INaK
+#
+[inak]
+use membrane.V
+use potassium.Ko, sodium.Nai
+use phys.RTF
+Km_K = 1 [mM]
+Km_Na = 40 [mM]
+PNaK = 1.841424 [A/F]
+INaK = PNaK * Ko / (Ko + Km_K) * Nai / (Nai + Km_Na) / (1 + (0.1245 * exp(-0.1 * V / RTF) + 0.0353 * exp(-V / RTF)))
+    in [A/F]
+
+#
+# IpCa
+#
+[ipca]
+KPCa = 0.0005 [mM]
+g = 0.4125 [A/F]
+IpCa = g * calcium.Cai / (calcium.Cai + KPCa)
+    in [A/F]
+
+#
+# Background calcium current
+#
+[ibca]
+g = 0.69264 [S/F]
+IbCa = g * (membrane.V - rev.ECa)
+    in [A/F]
+
+
+#
+# Background sodium current
+#
+[ibna]
+g = 0.9 [S/F]
+IbNa = g * (membrane.V - rev.ENa)
+    in [A/F]
+
+#
+# Funny current, haha!
+#
+[if]
+use membrane.V
+E = -0.017 [V]
+g = 30.10312 [S/F]
+If = g * (xf * (V - E))
+    in [A/F]
+dot(xf) = (inf - xf) / tau
+    inf = 1 / (1 + exp((V * 1000 + 77.85) / 5))
+    tau = 1900 / (1 + exp((V * 1000 + 15) / 10)) / 1000
+
+#
+# Ito
+#
+[ito]
+use membrane.V
+g_to = 29.9038
+    in [S/F]
+Ito = g_to * q * r * (V - rev.EK)
+    in [A/F]
+dot(q) = (q_inf - q) / tau_q
+    q_inf = 1 / (1 + exp((V * 1000 + 53) / 13))
+    tau_q = (6.06 + 39.102 / (0.57 * exp(-0.08 * (V * 1000 + 44)) + 0.065 * exp(0.1 * (V * 1000 + 45.93)))) / 1000
+        in [s]
+dot(r) = (r_inf - r) / tau_r
+    r_inf = 1 / (1 + exp(-(V * 1000 - 22.3) / 18.75))
+    tau_r = (2.75352 + 14.40516 / (1.037 * exp(0.09 * (V * 1000 + 30.61)) + 0.369 * exp(-0.12 * (V * 1000 + 23.84)))) / 1000
+        in [s]
+
+#
+# Cell size
+#
+[cell]
+Cm =  9.87109e-11 [F]
+V_SR = 583.73 [um^3]
+Vc = 8800 [um^3]
+
+#
+# Physical constants
+#
+[phys]
+R = 8.314472 [J/mol/K]
+T = 310 [K]
+F = 9.64853415e4 [C/mol]
+RTF = R * T / F
+
+[[protocol]]
+# Level  Start    Length   Period   Multiplier
+1        0.05     0.005    1.0      0
+
+[[script]]
+import matplotlib.pyplot as pl
+import myokit
+
+# Get model and protocol, create simulation
+m = get_model()
+p = get_protocol()
+s = myokit.Simulation(m, p)
+
+# Run simulation
+d = s.run(1)
+
+# Get the first state variable's name
+first_state = m.states().next()
+var = first_state.qname()
+
+# Display the results
+pl.figure()
+pl.plot(d.time(), d[var])
+pl.title(var)
+pl.show()
+
